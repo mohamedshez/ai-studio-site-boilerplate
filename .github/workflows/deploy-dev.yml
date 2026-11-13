@@ -1,0 +1,54 @@
+name: Deploy development
+
+on:
+  push:
+    branches: [dev]
+
+# One deploy at a time; a newer push waits for the running one.
+concurrency: deploy-dev
+
+permissions:
+  contents: read
+  id-token: write # lets the job sign in to Google Cloud without a stored key
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: development
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm test
+
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.WIF_PROVIDER }}
+          service_account: ${{ vars.DEPLOY_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+
+      - name: Build, deploy and confirm
+        run: bash scripts/deploy.sh
+        env:
+          SERVICE: site-dev
+          SITE_ENV: development
+          APP_VERSION: ${{ github.sha }}
+          GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+          GCP_REGION: ${{ vars.GCP_REGION }}
+          GAR_REPOSITORY: ${{ vars.GAR_REPOSITORY }}
+          RUNTIME_SERVICE_ACCOUNT: ${{ vars.RUNTIME_SERVICE_ACCOUNT }}
+          SITE_URL: ${{ vars.SITE_URL }}
+          DEV_AUTH_USER: ${{ secrets.DEV_AUTH_USER }}
+          DEV_AUTH_PASSWORD: ${{ secrets.DEV_AUTH_PASSWORD }}
+          CONTACT_TO_GENERAL: ${{ vars.CONTACT_TO_GENERAL }}
+          CONTACT_TO_SALES: ${{ vars.CONTACT_TO_SALES }}
+          CONTACT_TO_CAREERS: ${{ vars.CONTACT_TO_CAREERS }}
+          CONTACT_TO_SUPPORT: ${{ vars.CONTACT_TO_SUPPORT }}
+          SMTP_HOST: ${{ vars.SMTP_HOST }}
+          SMTP_PORT: ${{ vars.SMTP_PORT }}
+          SMTP_USER: ${{ vars.SMTP_USER }}
+          SMTP_FROM: ${{ vars.SMTP_FROM }}
+          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
